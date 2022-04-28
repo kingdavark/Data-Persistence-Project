@@ -3,39 +3,38 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.IO;
 
 public class MainManager : MonoBehaviour
 {
     public Brick BrickPrefab;
     public int LineCount = 6;
-    public Rigidbody Ball;
+    private Rigidbody Ball;
 
-    public Text ScoreText;
-    public GameObject GameOverText;
+    private Text ScoreText;
     
-    private bool m_Started = false;
+    private bool m_Started = true;
     private int m_Points;
     
     private bool m_GameOver = false;
 
-    
-    // Start is called before the first frame update
-    void Start()
+    public string playerName;
+
+    public int highscoreMain = 0;
+    public string highscorePlayer = "none";
+
+    public static MainManager instance;
+
+    private void Awake()
     {
-        const float step = 0.6f;
-        int perLine = Mathf.FloorToInt(4.0f / step);
-        
-        int[] pointCountArray = new [] {1,1,2,2,5,5};
-        for (int i = 0; i < LineCount; ++i)
+        if(instance!= null)
         {
-            for (int x = 0; x < perLine; ++x)
-            {
-                Vector3 position = new Vector3(-1.5f + step * x, 2.5f + i * 0.3f, 0);
-                var brick = Instantiate(BrickPrefab, position, Quaternion.identity);
-                brick.PointValue = pointCountArray[i];
-                brick.onDestroyed.AddListener(AddPoint);
-            }
+            Destroy(gameObject);
+            return;
         }
+        
+        instance = this;
+        DontDestroyOnLoad(gameObject);
     }
 
     private void Update()
@@ -60,6 +59,34 @@ public class MainManager : MonoBehaviour
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             }
         }
+
+        if(m_Points > highscoreMain)
+        {
+            SaveHighscore();    
+        }
+    }
+
+    public void SetLevel()
+    {
+        const float step = 0.6f;
+        int perLine = Mathf.FloorToInt(4.0f / step);
+
+        int[] pointCountArray = new[] { 1, 1, 2, 2, 5, 5 };
+        for (int i = 0; i < LineCount; ++i)
+        {
+            for (int x = 0; x < perLine; ++x)
+            {
+                Vector3 position = new Vector3(-1.5f + step * x, 2.5f + i * 0.3f, 0);
+                var brick = Instantiate(BrickPrefab, position, Quaternion.identity);
+                brick.PointValue = pointCountArray[i];
+                brick.onDestroyed.AddListener(AddPoint); 
+            }
+        }
+
+        Ball = GameObject.Find("Ball").GetComponent<Rigidbody>();
+        ScoreText = GameObject.Find("ScoreText").GetComponent<Text>();
+
+        m_Started = false;
     }
 
     void AddPoint(int point)
@@ -71,6 +98,37 @@ public class MainManager : MonoBehaviour
     public void GameOver()
     {
         m_GameOver = true;
-        GameOverText.SetActive(true);
     }
+
+    public void SaveHighscore()
+    {
+        SaveData highscoreData = new SaveData();
+        highscoreData.highscorePlayerName = playerName;
+        highscoreData.highScore = m_Points;
+
+        string json = JsonUtility.ToJson(highscoreData);
+
+        File.WriteAllText(Application.persistentDataPath + "/savefile.json", json);
+    }
+
+    public void LoadHighscore()
+    {
+        string path = Application.persistentDataPath + "/savefile.json";
+        if(File.Exists(path))
+        {
+            string json = File.ReadAllText(path);
+            SaveData highscoreData = JsonUtility.FromJson<SaveData>(json);
+
+            highscoreMain = highscoreData.highScore;
+            highscorePlayer = highscoreData.highscorePlayerName;
+        }
+    }
+
+    [System.Serializable]
+    public class SaveData
+    {
+        public string highscorePlayerName;
+        public int highScore;
+    }
+        
 }
